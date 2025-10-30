@@ -1,0 +1,954 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Device Configuration Generator - Schneider Electric</title>
+  <link rel="stylesheet" href="{% static 'webapp/css/style.css' %}">
+</head>
+
+<body>
+  <div class="main-container">
+    <div class="sidebar">
+      <a href="/"
+        style="display: inline-flex; align-items: center; gap: 8px; background: #3dcd58; color: white; text-decoration: none; font-size: 0.95rem; font-weight: 600; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; transition: all 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); justify-content: center;"
+        onmouseover="this.style.background='#2db04a'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.15)';"
+        onmouseout="this.style.background='#3dcd58'; this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)';">
+        <span style="font-size: 1.2rem;">←</span> Back to Hub
+      </a>
+      <h3>Saved Devices <span class="device-counter" id="deviceCounter">0</span></h3>
+      <div class="device-list" id="deviceList">
+        <div class="placeholder-content">
+          <p>No devices configured yet.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="header">
+        <div class="header-content">
+          <h1>Device Configuration Generator</h1>
+
+          <img src="{% static 'images/schneider_logo.png' %}" alt="Schneider Electric - Life Is On" class="company-logo"
+            style="position: absolute; top: 30px; right: 40px; width: 360px; height: auto; z-index: 100;" />
+
+          <div class="file-upload-section">
+            <h3>File Upload</h3>
+            <div class="file-upload-grid">
+              <div>
+                <input type="file" id="csvFile" class="file-input" accept=".csv" />
+                <label for="csvFile" class="file-input-label">Load CSV</label>
+              </div>
+              <div>
+                <input type="file" id="variablesCsvFile" class="file-input" accept=".csv" />
+                <label for="variablesCsvFile" class="file-input-label">Load Variables CSV</label>
+              </div>
+              <div>
+                <input type="file" id="alarmsCsvFile" class="file-input" accept=".csv" />
+                <label for="alarmsCsvFile" class="file-input-label">Load Alarms CSV</label>
+              </div>
+              <div>
+                <input type="file" id="trendsCsvFile" class="file-input" accept=".csv" />
+                <label for="trendsCsvFile" class="file-input-label">Load Trends CSV</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="tabs">
+            <button class="tab active" onclick="showTab('device-info', event)">Device Info</button>
+            <button class="tab" onclick="showTab('variables', event)">Variables</button>
+            <button class="tab" onclick="showTab('alarms', event)">Alarms</button>
+            <button class="tab" onclick="showTab('trends', event)">Trends</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content active" id="device-info">
+        <div class="protocol-selection">
+          <h2>Select Communication Protocol</h2>
+          <p>Choose the communication protocol that will be used for this device configuration</p>
+          <div class="protocol-buttons">
+            <button class="protocol-btn active" onclick="selectProtocol('modbus')">
+              <div>Modbus</div>
+            </button>
+            <button class="protocol-btn" onclick="selectProtocol('iec')">
+              <div>IEC 61850</div>
+            </button>
+          </div>
+        </div>
+
+        <form id="deviceForm">
+          <div class="config-cards">
+            <div class="config-card" onclick="generateEquipmentConfig()">
+              <h4>Equipment Config</h4>
+              <p>Generate EQUIP.csv with device specifications</p>
+            </div>
+            <div class="config-card" onclick="generateUnitsConfig()">
+              <h4>Units Config</h4>
+              <p>Generate UNITS.csv with network settings</p>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h3>Device Configuration</h3>
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label for="device_name">
+                  Device Name
+                  <div class="info-icon">
+                    i
+                    <div class="tooltip">
+                      Enter a unique device name. Use only letters, numbers, and underscores. Example: PV_Panel_01,
+                      Wind_Turbine_07
+                    </div>
+                  </div>
+                </label>
+                <input type="text" name="device_name" id="device_name" required placeholder="e.g. PV_Panel_01" />
+              </div>
+
+              <div class="form-group">
+                <label for="device_type">
+                  Device Type
+                  <div class="info-icon">
+                    i
+                    <div class="tooltip">
+                      Select the device type from the list. This determines which variables and configurations will be
+                      available for this device.
+                    </div>
+                  </div>
+                </label>
+                <select name="device_type" id="device_type" required>
+                  <option value="">Select device type</option>
+                  <option value="PV">PV Panel</option>
+                  <option value="WindTurbine">Wind Turbine</option>
+                  <option value="FuelTurbine">Fuel Turbine</option>
+                  <option value="FuelCell">Fuel Cell</option>
+                  <option value="BESS">BESS</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="tag_prefix">
+                  Tag Prefix
+                  <div class="info-icon">
+                    i
+                    <div class="tooltip">
+                      Prefix used for all tags of this device. Should be short and unique. Example: FugaPV1, BESS01
+                    </div>
+                  </div>
+                </label>
+                <input type="text" name="tag_prefix" id="tag_prefix" required placeholder="e.g. FugaPV1" />
+              </div>
+
+              <div class="form-group">
+                <label for="io_device">
+                  I/O Device Name
+                  <div class="info-icon">
+                    i
+                    <div class="tooltip">
+                      Name of the physical I/O device, gateway, or communication interface. This should match your
+                      network configuration. Example: Gateway_01, ModbusRTU_Master
+                    </div>
+                  </div>
+                </label>
+                <input type="text" name="io_device" id="io_device" required placeholder="e.g. Inverter_PV1" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Modbus Configuration Section -->
+          <div class="config-section" id="modbus-config">
+            <h3>Modbus Network Configuration</h3>
+
+            <div class="modbus-variant-selection">
+              <h4>Select Modbus Variant</h4>
+              <p>Choose between TCP/IP or RTU communication</p>
+              <div class="modbus-variant-buttons">
+                <button type="button" class="modbus-variant-btn active" onclick="selectModbusVariant('tcp')">
+                  TCP/IP
+                </button>
+                <button type="button" class="modbus-variant-btn" onclick="selectModbusVariant('rtu')">
+                  RTU
+                </button>
+              </div>
+            </div>
+
+            <div id="modbus-tcp-config">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="device_ip">
+                    IP Address
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        IPv4 address of the Modbus TCP device. Must be reachable from your SCADA system. Example:
+                        192.168.1.100
+                      </div>
+                    </div>
+                  </label>
+                  <input type="text" name="device_ip" id="device_ip" placeholder="e.g. 127.0.0.1" />
+                </div>
+                <div class="form-group">
+                  <label for="modbus_port">
+                    Modbus TCP Port
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        TCP port number for Modbus communication. Default is 502. Check device documentation if using
+                        custom port.
+                      </div>
+                    </div>
+                  </label>
+                  <input type="number" name="modbus_port" id="modbus_port" placeholder="502" value="502" />
+                </div>
+                <div class="form-group">
+                  <label for="port_name">
+                    Port Name
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Unique identifier for this communication port in your SCADA system. Format:
+                        P[number]_[board]_[project]. Example: P14_BOARD1_PRJ3
+                      </div>
+                    </div>
+                  </label>
+                  <input type="text" name="port_name" id="port_name" placeholder="e.g. P14_BOARD1_PRJ3" />
+                </div>
+                <div class="form-group">
+                  <label for="unit_number">
+                    Unit Number
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Modbus unit identifier (1-247). Also known as Slave ID in some contexts. Must match device
+                        configuration.
+                      </div>
+                    </div>
+                  </label>
+                  <input type="number" name="unit_number" id="unit_number" placeholder="1" value="1" min="1"
+                    max="247" />
+                </div>
+                <div class="form-group">
+                  <label for="board_name_tcp">
+                    Board Name
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Name of the communication board or interface card. Used for organizing multiple communication
+                        channels. Example: BOARD1, ETH_CARD1
+                      </div>
+                    </div>
+                  </label>
+                  <input type="text" name="board_name_tcp" id="board_name_tcp" placeholder="e.g. BOARD1" />
+                </div>
+                <div class="form-group">
+                  <label for="project_name">
+                    Project Name
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Name of your SCADA project. Used for file organization and reference. Keep it short and
+                        descriptive.
+                      </div>
+                    </div>
+                  </label>
+                  <input type="text" name="project_name" id="project_name" placeholder="e.g. DTU_project"
+                    value="DTU_project" />
+                </div>
+                <div class="form-group">
+                  <label for="memory_tcp">
+                    Memory
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Enable memory buffering for communication reliability. TRUE recommended for critical
+                        applications.
+                      </div>
+                    </div>
+                  </label>
+                  <select id="memory_tcp" name="memory">
+                    <option value="true">TRUE</option>
+                    <option value="false">FALSE</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div id="modbus-rtu-config" class="hidden">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="gateway_address">
+                    Gateway Address
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        IP address of the Modbus RTU to TCP gateway device. This converts between serial RTU and
+                        Ethernet TCP protocols.
+                      </div>
+                    </div>
+                  </label>
+                  <input type="text" name="gateway_address" id="gateway_address" placeholder="e.g. 192.168.1.100" />
+                </div>
+                <div class="form-group">
+                  <label for="slave_id">
+                    Slave ID
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Modbus RTU slave identifier (1-247). Each device on the RTU network must have a unique slave ID.
+                      </div>
+                    </div>
+                  </label>
+                  <input type="number" name="slave_id" id="slave_id" placeholder="1" min="1" max="247" />
+                </div>
+                <div class="form-group">
+                  <label for="port_name_rtu">
+                    Port Name
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Unique identifier for this RTU communication port in your SCADA system. Example: P15_SERIAL1_RTU
+                      </div>
+                    </div>
+                  </label>
+                  <input type="text" name="port_name_rtu" id="port_name_rtu" placeholder="e.g. P14_BOARD1_PRJ3" />
+                </div>
+                <div class="form-group">
+                  <label for="serial_port">
+                    Serial Port
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Serial communication port identifier. Examples: COM1 (Windows), /dev/ttyUSB0 (Linux). Check your
+                        system's device manager.
+                      </div>
+                    </div>
+                  </label>
+                  <input type="text" name="serial_port" id="serial_port" placeholder="e.g. COM1" />
+                </div>
+                <div class="form-group">
+                  <label for="memory_rtu">
+                    Memory
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Enable memory buffering for RTU communication reliability. TRUE recommended for stable
+                        operation.
+                      </div>
+                    </div>
+                  </label>
+                  <select id="memory_rtu" name="memory_rtu">
+                    <option value="true">TRUE</option>
+                    <option value="false">FALSE</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="board_name_rtu">
+                    Board Name
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Name of the serial communication board or RS485 interface. Used for hardware identification.
+                        Example: SERIAL_BOARD1
+                      </div>
+                    </div>
+                  </label>
+                  <input type="text" name="board_name_rtu" id="board_name_rtu" placeholder="e.g. BOARD1" />
+                </div>
+              </div>
+
+              <div class="advanced-options-toggle" onclick="toggleAdvancedOptions()">
+                <div class="checkbox-container">
+                  <input type="checkbox" id="advancedOptionsCheckbox">
+                </div>
+                <label for="advancedOptionsCheckbox">Advanced Options</label>
+              </div>
+
+              <div id="advancedOptionsContent" class="advanced-options-content">
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="baud_rate">
+                      Baud Rate
+                      <div class="info-icon">
+                        i
+                        <div class="tooltip">
+                          Serial communication speed in bits per second. Must match all devices on the RTU network.
+                          38400 is commonly used.
+                        </div>
+                      </div>
+                    </label>
+                    <select name="baud_rate" id="baud_rate" disabled>
+                      <option value="9600">9600</option>
+                      <option value="19200">19200</option>
+                      <option value="38400" selected>38400</option>
+                      <option value="57600">57600</option>
+                      <option value="115200">115200</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="data_bits">
+                      Data Bits
+                      <div class="info-icon">
+                        i
+                        <div class="tooltip">
+                          Number of data bits per character. 8 bits is standard for most Modbus RTU applications.
+                        </div>
+                      </div>
+                    </label>
+                    <select name="data_bits" id="data_bits" disabled>
+                      <option value="7">7</option>
+                      <option value="8" selected>8</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="parity">
+                      Parity
+                      <div class="info-icon">
+                        i
+                        <div class="tooltip">
+                          Error detection method. 'None' is most common. Must match all devices on the network for
+                          proper communication.
+                        </div>
+                      </div>
+                    </label>
+                    <select name="parity" id="parity" disabled>
+                      <option value="None" selected>None</option>
+                      <option value="Even">Even</option>
+                      <option value="Odd">Odd</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="stop_bits">
+                      Stop Bits
+                      <div class="info-icon">
+                        i
+                        <div class="tooltip">
+                          Number of stop bits for serial framing. 1 stop bit is standard. Must match device
+                          configuration.
+                        </div>
+                      </div>
+                    </label>
+                    <select name="stop_bits" id="stop_bits" disabled>
+                      <option value="1" selected>1</option>
+                      <option value="2">2</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="config-section hidden" id="iec-config">
+            <h3>IEC 61850 Network Configuration</h3>
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label for="iec_device_ip">
+                  Device IP Address
+                  <div class="info-icon">
+                    i
+                    <div class="tooltip">
+                      IPv4 address of the IEC 61850 device (IED). Must be reachable from your SCADA system network.
+                    </div>
+                  </div>
+                </label>
+                <input type="text" name="iec_device_ip" id="iec_device_ip" placeholder="e.g. 192.168.1.100" />
+              </div>
+              <div class="form-group">
+                <label for="iec_port">
+                  Port Number
+                  <div class="info-icon">
+                    i
+                    <div class="tooltip">
+                      TCP port for IEC 61850 MMS communication. Default is 102. Check device configuration if different.
+                    </div>
+                  </div>
+                </label>
+                <input type="number" name="iec_port" id="iec_port" placeholder="102" value="102" min="1" max="65535" />
+              </div>
+              <div class="form-group">
+                <label for="ied_name">
+                  IED Name
+                  <div class="info-icon">
+                    i
+                    <div class="tooltip">
+                      Intelligent Electronic Device name as defined in the SCL file. Must match exactly with device
+                      configuration. Example: PROT_RELAY_01
+                    </div>
+                  </div>
+                </label>
+                <input type="text" name="ied_name" id="ied_name" placeholder="e.g. PROT_RELAY_01" />
+              </div>
+              <div class="form-group">
+                <label for="access_point">
+                  Port Name
+                  <div class="info-icon">
+                    i
+                    <div class="tooltip">
+                      Communication access point name for this IED connection. Used for port identification in SCADA
+                      system. Example: P_RELAY_01
+                    </div>
+                  </div>
+                </label>
+                <input type="text" name="access_point" id="access_point" placeholder="e.g. P_RELAY_01" />
+              </div>
+              <div class="form-group">
+                <label for="logical_device">
+                  Logical Device
+                  <div class="info-icon">
+                    i
+                    <div class="tooltip">
+                      Logical device instance within the IED. Usually LD0, LD1, etc. Check your device's SCL file for
+                      exact name.
+                    </div>
+                  </div>
+                </label>
+                <input type="text" name="logical_device" id="logical_device" placeholder="e.g. Relay" />
+              </div>
+              <div class="form-group">
+                <label for="board_name">
+                  Board Name
+                  <div class="info-icon">
+                    i
+                    <div class="tooltip">
+                      Name of the communication board handling IEC 61850 protocol. Used for hardware organization.
+                      Example: IEC_BOARD1
+                    </div>
+                  </div>
+                </label>
+                <input type="text" name="board_name" id="board_name" placeholder="e.g. BOARD1" />
+              </div>
+              <div class="form-group">
+                <label for="memory_iec">
+                  Memory
+                  <div class="info-icon">
+                    i
+                    <div class="tooltip">
+                      Enable memory buffering for IEC 61850 communication reliability. TRUE recommended for critical
+                      power system applications.
+                    </div>
+                  </div>
+                </label>
+                <select id="memory_iec" name="memory_iec">
+                  <option value="true">TRUE</option>
+                  <option value="false">FALSE</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Report Control Blocks Section -->
+            <div class="config-section">
+              <h4>Report Control Blocks</h4>
+              <p style="color: #666; font-size: 0.9em; margin-bottom: 20px;">
+                Fill in at least one of the report control blocks (BRCB or URCB). You can configure both if needed.
+              </p>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="brcb">
+                    BRCB (Buffered Report Control Block)
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Buffered Report Control Block for reliable data transmission with store-and-forward capability.
+                        Example: LLN0$BR$brcbEV1
+                      </div>
+                    </div>
+                  </label>
+                  <input type="text" name="brcb" id="brcb" placeholder="e.g. LLN0$BR$brcbEV1" />
+                </div>
+
+                <div class="form-group">
+                  <label for="urcb">
+                    URCB (Unbuffered Report Control Block)
+                    <div class="info-icon">
+                      i
+                      <div class="tooltip">
+                        Unbuffered Report Control Block for fast, real-time data transmission without buffering.
+                        Example: LLN0$RP$urcbEV4
+                      </div>
+                    </div>
+                  </label>
+                  <input type="text" name="urcb" id="urcb" placeholder="e.g. LLN0$RP$urcbEV4" />
+                </div>
+              </div>
+
+              <!-- Validation message for report control blocks -->
+              <div id="rcb-validation" style="display: none; color: #dc3545; font-size: 0.9em; margin-top: 8px;">
+                Please fill in at least one Report Control Block (BRCB or URCB).
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="scl_file">
+                SCL File Path (Optional)
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Path to the System Configuration Language file (.cid, .scd, .icd). Contains device data model
+                    definition. Format: [USER]:Project\Device.cid
+                  </div>
+                </div>
+              </label>
+              <input type="text" name="scl_file" id="scl_file" placeholder="e.g. [USER]:Project\Device.cid" />
+            </div>
+          </div>
+
+          <div class="progress-bar">
+            <div class="progress-fill"></div>
+          </div>
+
+          <div class="button-group">
+            <input type="file" id="cidFile" class="file-input hidden" accept=".cid" />
+            <label for="cidFile" class="file-input-label hidden" id="cidInputLabel">Load CID</label>
+
+            <button type="button" class="btn btn-success" id="saveDeviceBtn" onclick="saveDevice()">Save Device</button>
+            <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+            <button type="button" class="btn btn-primary" id="generateCSVBtn" onclick="generateAllCSV()">Generate CSV
+              Files</button>
+          </div>
+        </form>
+
+        <div class="loading" id="loading">
+          <div class="spinner"></div>
+          <p>Processing configuration...</p>
+        </div>
+      </div>
+
+      <!-- Variables Tab -->
+      <div class="tab-content" id="variables">
+        <div class="config-section">
+          <h3>Variable Configuration</h3>
+          <div class="form-grid-3">
+            <div class="form-group">
+              <label for="item_name">
+                Item Name
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Unique variable identifier. Use descriptive names starting with letter/underscore. Example: Ia,
+                    ActivePower, Temperature
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="item_name" placeholder="e.g. Ia" />
+            </div>
+            <div class="form-group">
+              <label for="io_device_var">
+                I/O Device
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Communication device or gateway handling this variable. Must match a configured I/O device name.
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="io_device_var" placeholder="e.g. Inverter_01" />
+            </div>
+            <div class="form-group">
+              <label for="tag_name_var">
+                Tag Name
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Complete tag reference including logical nodes. For IEC: MMXU1\A\phsA. For Modbus: use descriptive
+                    names like PV_Power_kW.
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="tag_name_var" placeholder="e.g. MMXU1\\A\\phsA" />
+            </div>
+            <div class="form-group">
+              <label for="address">
+                Address
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Register address for Modbus (e.g. 40001) or data object reference for IEC 61850. Check device
+                    documentation for correct addresses.
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="address" placeholder="e.g. 40001" />
+            </div>
+            <div class="form-group">
+              <label for="equipment_var">
+                Equipment
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Equipment or system this variable belongs to. Used for organization in SCADA displays. Example:
+                    Virtual.System, PV.Inverter1
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="equipment_var" placeholder="e.g. Virtual.System" />
+            </div>
+            <div class="form-group">
+              <label for="data_type">
+                Data Type
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Data type of the variable. Float for analog values, Integer for counts, Boolean for digital states,
+                    String for text.
+                  </div>
+                </div>
+              </label>
+              <select id="data_type">
+                <option value="float">Float</option>
+                <option value="int">Integer</option>
+                <option value="bool">Boolean</option>
+                <option value="string">String</option>
+              </select>
+            </div>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-primary" id="addVariableBtn" onclick="addVariable()">Add Variable</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Item Name</th>
+                <th>I/O Device</th>
+                <th>Tag Name</th>
+                <th>Address</th>
+                <th>Equipment</th>
+                <th>Data Type</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="variableTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Alarms Tab -->
+      <div class="tab-content" id="alarms">
+        <div class="config-section">
+          <h3>Alarms Configuration</h3>
+          <div class="form-grid-3">
+            <div class="form-group">
+              <label for="alarm_name">
+                Alarm Name
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Descriptive name for the alarm. Use clear, meaningful names that indicate the problem. Example:
+                    PowerFailure24V, HighTemperature, CommunicationLoss
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="alarm_name" placeholder="e.g. PowerFailure24V" />
+            </div>
+            <div class="form-group">
+              <label for="alarm_type">
+                Alarm Type
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Type of alarm processing. Analog: for threshold alarms on numeric values. Digital: for binary state
+                    changes. Advanced: for complex conditions.
+                  </div>
+                </div>
+              </label>
+              <select id="alarm_type">
+                <option value="analog">Analog</option>
+                <option value="digital">Digital</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="category">
+                Category
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Alarm severity level. Low: informational. Medium: requires attention. High: critical, immediate
+                    action needed. Event: status notification.
+                  </div>
+                </div>
+              </label>
+              <select id="category">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="event">Event</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="alarm_tag">
+                Alarm Tag
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Variable tag that triggers this alarm. Should reference an existing variable or be a
+                    system-generated tag.
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="alarm_tag" placeholder="e.g. User_Event" />
+            </div>
+            <div class="form-group">
+              <label for="equipment">
+                Equipment
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Equipment or system component this alarm is associated with. Used for alarm grouping and filtering.
+                    Example: Virtual.System, Inverter.Unit1
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="equipment" placeholder="e.g. Virtual.System" />
+            </div>
+            <div class="form-group">
+              <label for="item_name_alarm">
+                Item Name
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Data item or variable name this alarm monitors. Should match variable names for consistency.
+                    Example: CommHealth, Voltage_L1
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="item_name_alarm" placeholder="e.g. CommHealth" />
+            </div>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-primary" id="addAlarmBtn" onclick="addAlarm()">Add Alarm</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Alarm Name</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Alarm Tag</th>
+                <th>Equipment</th>
+                <th>Item Name</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="alarmTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Trends Tab -->
+      <div class="tab-content" id="trends">
+        <div class="config-section">
+          <h3>Trends Configuration</h3>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="tag_description">
+                Tag Description
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Human-readable description of what this trend represents. Used in reports and displays. Example:
+                    "Solar Panel 4 Power Output"
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="tag_description" placeholder="e.g. Current A" />
+            </div>
+            <div class="form-group">
+              <label for="trend_types">
+                Trend Types
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Data collection method. Event: triggered by changes. Periodic: fixed time intervals. Periodic-Event:
+                    both methods combined.
+                  </div>
+                </div>
+              </label>
+              <select id="trend_types">
+                <option value="event">Event</option>
+                <option value="periodic">Periodic</option>
+                <option value="periodic-event">Periodic-Event</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="trend_time">
+                Sample Period
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Sample interval for periodic trends. Shorter intervals provide more detail but use more storage
+                    space.
+                  </div>
+                </div>
+              </label>
+              <select id="trend_time">
+                <option value="00:01">1 minute</option>
+                <option value="00:15">15 minutes</option>
+                <option value="01:00">1 hour</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="tag_name">
+                Tag Name
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Unique identifier for the trend tag in your SCADA system. Should be short and descriptive. Example:
+                    PV_Power, Wind_Speed, BESS_SOC
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="tag_name" placeholder="e.g. PV4" />
+            </div>
+            <div class="form-group">
+              <label for="item_name_trend">
+                Item Name
+                <div class="info-icon">
+                  i
+                  <div class="tooltip">
+                    Name of the data item being trended. Should match variable names for consistency. Used for data
+                    organization and display labels.
+                  </div>
+                </div>
+              </label>
+              <input type="text" id="item_name_trend" placeholder="e.g. PVPanel4" />
+            </div>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-primary" id="addTrendBtn" onclick="addTrend()">Add Trend</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Tag Description</th>
+                <th>Trend Types</th>
+                <th>Tag Name</th>
+                <th>Item Name</th>
+                <th>Time</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="trendTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{% static 'webapp/js/main.js' %}"></script>
+</body>
+
+</html>
